@@ -17,8 +17,8 @@ public class RegisterCommands {
 
     @SuppressWarnings("unused")
     public static void registerCommands() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-                dispatcher.register(CommandManager.literal("HealthMod")
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(CommandManager.literal("healthmod")
+                .requires(source -> source.hasPermissionLevel(2)) // Requires OP level 2
                 .then(CommandManager.literal("reset")
                         .then(CommandManager.argument("player", StringArgumentType.word())
                                 .executes(context -> resetPlayer(context.getSource(), StringArgumentType.getString(context, "player")))))));
