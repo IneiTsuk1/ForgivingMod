@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "heartmod",
+  "version": "${version}",
+  "name": "limited Lives",
+  "description": "This is a simple mod that when the player dies will increase the maximum health of the player but after a configurable amount of health is added / deaths for the player has happened will ban them from the server.",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "net.IneiTsuki.heartmod.client.HeartmodClient"
+    ],
+    "main": [
+      "net.IneiTsuki.heartmod.HealthMod"
+    ]
+  },
+  "mixins": [
+    "heartmod.mixins.json",
+    {
+      "config": "heartmod.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
