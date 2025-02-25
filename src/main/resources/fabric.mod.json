@@ -1,25 +1,25 @@
 {
   "schemaVersion": 1,
-  "id": "heartmod",
+  "id": "forgiving_mod",
   "version": "${version}",
-  "name": "limited Lives",
+  "name": "Forgiving",
   "description": "This is a simple mod that when the player dies will increase the maximum health of the player but after a configurable amount of health is added / deaths for the player has happened will ban them from the server.",
-  "authors": [],
+  "authors": ["IneiTsuki"],
   "contact": {},
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
     "client": [
-      "net.IneiTsuki.heartmod.client.HeartmodClient"
+      "net.IneiTsuki.forgiving_mod.client.ForgivingModClient"
     ],
     "main": [
-      "net.IneiTsuki.heartmod.HealthMod"
+      "net.IneiTsuki.forgiving_mod.ForgivingMod"
     ]
   },
   "mixins": [
-    "heartmod.mixins.json",
+    "forgiving_mod.mixins.json",
     {
-      "config": "heartmod.client.mixins.json",
+      "config": "forgiving_mod.client.mixins.json",
       "environment": "client"
     }
   ],
