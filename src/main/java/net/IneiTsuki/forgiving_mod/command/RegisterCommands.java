@@ -19,7 +19,7 @@ public class RegisterCommands {
     @SuppressWarnings("unused")
     public static void registerCommands() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(CommandManager.literal("ForgivingMod")
-                .requires(source -> source.hasPermissionLevel(2)) // Requires OP level 2
+                .requires(source -> source.hasPermissionLevel(3)) // Requires OP level 2
                 .then(CommandManager.literal("Reset")
                         .then(CommandManager.argument("Player", StringArgumentType.word())
                                 .executes(context -> resetPlayer(context.getSource(), StringArgumentType.getString(context, "Player")))))));
