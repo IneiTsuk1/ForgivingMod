@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class ConfigManager {
-    private static final Logger LOGGER = LoggerFactory.getLogger("Forgiving");
+    private static final Logger LOGGER = LoggerFactory.getLogger("ForgivingMod");
     private static final Path CONFIG_PATH = Paths.get("config/ForgivingMod/Forgiving.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -26,38 +26,48 @@ public class ConfigManager {
         try {
             if (!Files.exists(CONFIG_PATH)) {
                 saveDefaultConfig();
+                return;
             }
 
-            String json = new String(Files.readAllBytes(CONFIG_PATH));
-            JsonObject config = JsonParser.parseString(json).getAsJsonObject();
+            try (BufferedReader reader = Files.newBufferedReader(CONFIG_PATH)) {
+                JsonObject config = JsonParser.parseReader(reader).getAsJsonObject();
 
-            maxExtraHearts = config.has("max_extra_hearts") ? config.get("max_extra_hearts").getAsInt() : maxExtraHearts;
-            healthPerDeath = config.has("health_per_death") ? config.get("health_per_death").getAsInt() : healthPerDeath;
-            enableBan = config.has("enable_ban") ? config.get("enable_ban").getAsBoolean() : enableBan;
-            banMessage = config.has("ban_message") ? config.get("ban_message").getAsString() : banMessage;
+                maxExtraHearts = config.has("max_extra_hearts") ? config.get("max_extra_hearts").getAsInt() : maxExtraHearts;
+                healthPerDeath = config.has("health_per_death") ? config.get("health_per_death").getAsInt() : healthPerDeath;
+                enableBan = config.has("enable_ban") ? config.get("enable_ban").getAsBoolean() : enableBan;
+                banMessage = config.has("ban_message") ? config.get("ban_message").getAsString() : banMessage;
+            }
 
-            LOGGER.info("Loaded config: maxExtraHearts={}, healthPerDeath={}, enableBan={}, banMessage={}", maxExtraHearts, healthPerDeath, enableBan, banMessage);
+            LOGGER.info("Config loaded successfully: maxExtraHearts={}, healthPerDeath={}, enableBan={}, banMessage={}",
+                    maxExtraHearts, healthPerDeath, enableBan, banMessage);
         } catch (Exception e) {
-            LOGGER.error("Failed to load config! Using defaults.", e);
+            LOGGER.error("Failed to load config! Regenerating default config.", e);
+            saveDefaultConfig();  // Regenerate default config if loading fails
         }
     }
 
-    private static void saveDefaultConfig() {
+    public static void saveConfig() {
         try {
-            Files.createDirectories(CONFIG_PATH.getParent());
             JsonObject config = new JsonObject();
             config.addProperty("max_extra_hearts", maxExtraHearts);
             config.addProperty("health_per_death", healthPerDeath);
             config.addProperty("enable_ban", enableBan);
             config.addProperty("ban_message", banMessage);
 
-            try (Writer writer = new FileWriter(CONFIG_PATH.toFile())) {
+            Files.createDirectories(CONFIG_PATH.getParent());
+
+            try (BufferedWriter writer = Files.newBufferedWriter(CONFIG_PATH)) {
                 GSON.toJson(config, writer);
             }
 
-            LOGGER.info("Created default config file.");
+            LOGGER.info("Config saved successfully.");
         } catch (IOException e) {
-            LOGGER.error("Failed to save default config.", e);
+            LOGGER.error("Failed to save config.", e);
         }
+    }
+
+    private static void saveDefaultConfig() {
+        LOGGER.info("Creating default config file...");
+        saveConfig();
     }
 }

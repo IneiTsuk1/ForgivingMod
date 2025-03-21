@@ -5,6 +5,7 @@ import net.IneiTsuki.forgiving_mod.config.ConfigManager;
 import net.IneiTsuki.forgiving_mod.config.DeathTracker;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.server.BannedPlayerEntry;
@@ -12,13 +13,19 @@ import net.minecraft.server.BannedPlayerList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
+import java.util.logging.Logger;
 
 public class ForgivingMod implements ModInitializer {
+    private static final Logger LOGGER = (Logger) LoggerFactory.getLogger("ForgivingMod");
+
 
     @Override
     public void onInitialize() {
+        LOGGER.info("Initializing Forgiving Mod... ");
+
         // Load config and death data
         ConfigManager.loadConfig();
         DeathTracker.loadDeathData();
@@ -26,6 +33,14 @@ public class ForgivingMod implements ModInitializer {
 
         // Register player respawn event
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> handlePlayerDeath(newPlayer));
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> shutDown());
+    }
+
+    private void shutDown() {
+        LOGGER.info("Saving ForgivingMod data before shutdown...");
+        DeathTracker.saveDeathData();
+        ConfigManager.saveConfig();
+        LOGGER.info("ForgivingMod data saved successfully.");
     }
 
     private void handlePlayerDeath(ServerPlayerEntity player) {
@@ -78,5 +93,6 @@ public class ForgivingMod implements ModInitializer {
 
         banList.add(banEntry); // Add the player to the ban list
         player.networkHandler.disconnect(Text.literal(ConfigManager.banMessage)); // Kick them from the server
+        LOGGER.info("Banned player: " + player.getGameProfile().getName());
     }
 }

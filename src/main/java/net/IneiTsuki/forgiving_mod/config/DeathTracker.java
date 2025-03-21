@@ -11,54 +11,57 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class DeathTracker {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path DATA_PATH = Paths.get("config/ForgivingMod/Data/Forgiving_data.json");
-    private static final HashMap<UUID, Integer> deathTracker = new HashMap<>();
-
+    private static final ConcurrentHashMap<UUID, Integer> deathTracker = new ConcurrentHashMap<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(DeathTracker.class);
+    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
+    static {
+        scheduler.scheduleAtFixedRate(DeathTracker::saveDeathData, 30, 30, TimeUnit.SECONDS);
+    }
 
     public static void loadDeathData() {
         try {
             if (!Files.exists(DATA_PATH)) {
                 saveDeathData();
-            } else if (Files.exists(DATA_PATH)) {
-                deathTracker.putAll(GSON.fromJson(new FileReader(DATA_PATH.toFile()), new TypeToken<HashMap<UUID, Integer>>() {}.getType()));
+                return;
             }
 
+            try (Reader reader = Files.newBufferedReader(DATA_PATH)) {
+                deathTracker.putAll(GSON.fromJson(reader, new TypeToken<ConcurrentHashMap<UUID, Integer>>() {}.getType()));
+            }
         } catch (Exception e) {
-            LOGGER.error("Failed to load data: {}", e.getMessage(), e);
+            LOGGER.error("Failed to load death data: {}", e.getMessage(), e);
         }
     }
 
     public static void saveDeathData() {
-
         try {
             Files.createDirectories(DATA_PATH.getParent());
 
-            try (Writer writer = new FileWriter(DATA_PATH.toFile())){
+            try (BufferedWriter writer = Files.newBufferedWriter(DATA_PATH)) {
                 GSON.toJson(deathTracker, writer);
             }
-
         } catch (IOException e) {
-            LOGGER.error("Failed to save data: {}", e.getMessage(), e);
+            LOGGER.error("Failed to save death data: {}", e.getMessage(), e);
         }
     }
 
     public static void incrementDeathCount(ServerPlayerEntity player) {
         UUID playerId = player.getUuid();
-        int deaths = getDeathCount(playerId) + 1;
-        deathTracker.put(playerId, deaths);
-        saveDeathData(); // Ensure data is saved immediately
+        deathTracker.merge(playerId, 1, Integer::sum);
     }
 
     public static void resetDeathCount(UUID playerId) {
         deathTracker.remove(playerId);
-        saveDeathData();
     }
 
     public static int getDeathCount(UUID playerId) {
