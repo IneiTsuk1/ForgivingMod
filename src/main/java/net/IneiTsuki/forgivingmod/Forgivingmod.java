@@ -25,16 +25,15 @@ public class Forgivingmod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("Initializing Forgiving Mod... ");
+        LOGGER.info("Initializing Forgiving Mod...");
 
-        // Load config and death data
+        // Load config and data
         ConfigManager.loadConfig();
         DeathTracker.loadDeathData();
         RegisterCommands.registerCommands();
 
-
-        // register player respawn event and server stopping
-        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> handlePlayerDeath(newPlayer));
+        // Register player respawn and shutdown events
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> handlePlayerRespawn(newPlayer));
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> shutDown());
     }
 
@@ -45,31 +44,38 @@ public class Forgivingmod implements ModInitializer {
         LOGGER.info("ForgivingMod data saved successfully.");
     }
 
-    private void handlePlayerDeath(ServerPlayerEntity player) {
+    private void handlePlayerRespawn(ServerPlayerEntity player) {
+        var cfg = ConfigManager.getConfig();
         UUID playerId = player.getUuid();
         int deaths = DeathTracker.getDeathCount(playerId);
+        int maxDeaths = DeathTracker.getMaxDeaths(playerId);
+        int remainingLives = Math.max(0, maxDeaths - deaths + DeathTracker.getBonusLives(playerId));
 
-        if (deaths < (ConfigManager.maxExtraHearts / ConfigManager.healthPerDeath)) {
-            // Increase death count and apply health
+        if (remainingLives > 0) {
             DeathTracker.incrementDeathCount(player);
             applyExtraHealth(player, deaths + 1);
-            player.sendMessage(Text.literal("You gained extra health! Total extra hearts: " + ((deaths + 1) * ConfigManager.healthPerDeath / 2)), false);
+
+            int totalExtraHearts = ((deaths + 1) * cfg.health_per_death) / 2;
+
+            if (remainingLives == 1) {
+                player.sendMessage(Text.literal("The world is giving you one last chance! Hearts: " + totalExtraHearts), false);
+            } else {
+                player.sendMessage(Text.literal("The world is giving you another chance! Hearts: " + totalExtraHearts), false);
+            }
         } else {
-            if (ConfigManager.enableBan) {
+            if (cfg.enable_ban) {
                 banPlayer(player);
             }
         }
     }
 
-    // Apply extra health properly
     private void applyExtraHealth(ServerPlayerEntity player, int deaths) {
-        EntityAttributeInstance healthAttribute = player.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
-        if (healthAttribute != null) {
-            double newHealth = 20.0 + (deaths * ConfigManager.healthPerDeath);
-            healthAttribute.setBaseValue(newHealth);
-
-            // Ensure the player gets full health after respawn
-            player.setHealth(player.getMaxHealth());
+        var cfg = ConfigManager.getConfig();
+        EntityAttributeInstance healthAttr = player.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
+        if (healthAttr != null) {
+            double newHealth = 20.0 + (deaths * cfg.health_per_death);
+            healthAttr.setBaseValue(newHealth);
+            player.setHealth(player.getMaxHealth()); // Fully heal on respawn
         }
     }
 
@@ -79,22 +85,38 @@ public class Forgivingmod implements ModInitializer {
 
         BannedPlayerList banList = server.getPlayerManager().getUserBanList();
 
-        // Check if the player is already banned
-        if (banList.contains(player.getGameProfile())) {
-            return; // Player is already banned, do nothing
+        // Avoid duplicate bans
+        if (banList.contains(player.getGameProfile())) return;
+
+        var cfg = ConfigManager.getConfig();
+
+        // Calculate expiration time (if any)
+        java.util.Date expirationDate = null;
+        if (cfg.ban_duration > 0) {
+            // You can change this multiplier to match your design:
+            // * 60_000L = minutes
+            // * 3_600_000L = hours
+            // * 86_400_000L = days
+            long durationMillis = cfg.ban_duration * 60_000L; // banDuration in minutes
+            expirationDate = new java.util.Date(System.currentTimeMillis() + durationMillis);
         }
 
-        // If not banned, proceed with banning the player
+        // Create ban entry
         BannedPlayerEntry banEntry = new BannedPlayerEntry(
                 player.getGameProfile(),
-                null,  // Ban date (null means it takes effect immediately)
-                "Forgiving",  // Source (who banned them)
-                null,  // Expiration date (null means permanent ban)
-                ConfigManager.banMessage
+                new java.util.Date(),   // Ban date
+                "ForgivingMod",         // Source
+                expirationDate,         // Expiration (null = permanent)
+                cfg.ban_message          // Reason
         );
 
-        banList.add(banEntry); // Add the player to the ban list
-        player.networkHandler.disconnect(Text.literal(ConfigManager.banMessage)); // Kick them from the server
-        LOGGER.info("Banned player: {}", player.getGameProfile().getName());
+        banList.add(banEntry);
+        player.networkHandler.disconnect(Text.literal(cfg.ban_message));
+
+        if (expirationDate == null) {
+            LOGGER.info("Permanently banned player: {}", player.getGameProfile().getName());
+        } else {
+            LOGGER.info("Temporarily banned player: {} for {} minute(s)", player.getGameProfile().getName(), cfg.ban_duration);
+        }
     }
 }
